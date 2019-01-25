@@ -11,8 +11,11 @@ if [ ! -f /usr/lib/ISOLINUX/isohdpfx.bin ]; then
   exit 1
 fi
 
-ISO_IN="ubuntu-mate-18.10-desktop-amd64.iso"
+#ISO_IN="ubuntu-mate-18.10-desktop-amd64.iso"
+ISO_IN="/home/nicolas/Downloads/iso/linuxmint-19.1-mate-64bit.iso"
 ISO_OUT=$(basename "${ISO_IN}" | sed "s/\.iso/-gpd-pocket\.iso/")
+#ISO_VOL_LABEL="Ubuntu-MATE 18.10 GPD Pocket"
+ISO_VOL_LABEL="Linux Mint MATE 19.1 GPD Pocket"
 MNT_IN="${HOME}/iso_in"
 MNT_OUT="${HOME}/iso_out"
 SQUASH_IN="${MNT_IN}/casper/filesystem.squashfs"
@@ -27,6 +30,7 @@ CONSOLE_CONF="${SQUASH_OUT}/etc/default/console-setup"
 GLIB_CONF="${SQUASH_OUT}/usr/share/glib-2.0/schemas/99_gpd-pocket.gschema.override"
 XRANDR_SCRIPT="gpd-pocket-display-scaler"
 XRANDR_DESKTOP="${SQUASH_OUT}/etc/xdg/autostart/gpd-pocket-xrandr.desktop"
+INTEL_CONF="${XORG_CONF_PATH}/20-intel.conf"
 
 # Copy the contents of the ISO
 mkdir -p ${MNT_IN}
@@ -54,10 +58,21 @@ EndSection
 
 # GPD Pocket2
 Section "Monitor"
-  Identifier "eDP-1"
+Identifier "eDP1"
   Option     "Rotate"  "right"
 EndSection
 MONITOR
+
+  # Prevent tearing
+  cat << INTEL > "${INTEL_CONF}"
+Section "Device"
+  Identifier  "Device0"
+  Driver      "intel"
+  Option     "AccelMethod"            "sna"
+  Option     "TearFree"               "true"
+  Option     "DRI"			"3"
+EndSection
+INTEL
 
 # Rotate the touchscreen.
 cat << TOUCHSCREEN > "${TOUCH_CONF}"
@@ -96,6 +111,12 @@ OnlyShowIn=MATE;
 NoDisplay=true
 Comment=Scale up the internal display on the GPD Pocket. Disable this Startup Program and log out to restore the native resolution.
 XRANDR_DESKTOP
+
+# Fix the GRUB2 menu is not displayed at all on the GPD Pocket 2
+cat << GRUB_DISPLAY_FIX >> /etc/default/grub
+GRUB_GFXMODE=1200x1920x32
+GRUB_GFXPAYLOAD_LINUX=keep
+GRUB_DISPLAY_FIX
 
 # Rotate the framebuffer
 sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="quiet/GRUB_CMDLINE_LINUX_DEFAULT="i915.fastboot=1 fbcon=rotate:1 quiet/' "${GRUB_DEFAULT_CONF}"
@@ -265,7 +286,7 @@ xorriso \
   -no-emul-boot \
   -isohybrid-gpt-basdat \
   -isohybrid-apm-hfsplus \
-  -volid "Ubuntu-MATE 18.10 GPD Pocket" \
+  -volid "${ISO_VOL_LABEL}" \
   -o "${ISO_OUT}" "${MNT_OUT}/"
 
 # Clean up
